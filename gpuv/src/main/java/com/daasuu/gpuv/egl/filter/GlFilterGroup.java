@@ -79,8 +79,8 @@ public class GlFilterGroup extends GlFilter {
     private int prevTexName;
 
     @Override
-    public void draw(final int texName, final GlFramebufferObject fbo) {
-        prevTexName = texName;
+    public void draw(final int texName) {
+       /* prevTexName = texName;
         for (final Pair<GlFilter, GlFramebufferObject> pair : list) {
             if (pair.second != null) {
                 if (pair.first != null) {
@@ -102,7 +102,7 @@ public class GlFilterGroup extends GlFilter {
                     pair.first.draw(prevTexName, fbo);
                 }
             }
-        }
+        }*/
     }
 
 }

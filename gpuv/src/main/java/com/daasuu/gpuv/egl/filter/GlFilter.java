@@ -105,7 +105,7 @@ public class GlFilter {
     }
 
     //
-    public void draw(final int texName, final GlFramebufferObject fbo) {
+    public void draw(final int texName) {
         useProgram();
 
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferName);

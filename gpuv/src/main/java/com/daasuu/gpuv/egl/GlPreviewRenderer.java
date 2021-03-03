@@ -16,20 +16,13 @@ import static android.opengl.GLES20.*;
 
 
 
-public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements SurfaceTexture.OnFrameAvailableListener {
+public class GlPreviewRenderer implements SurfaceTexture.OnFrameAvailableListener {
 
     private final Handler handler = new Handler();
 
-    private GlSurfaceTexture previewTexture;
+    //private GlSurfaceTexture previewTexture;
 
     // private final Camera camera;
-    private int texName;
-
-    private float[] MVPMatrix = new float[16];
-    private float[] ProjMatrix = new float[16];
-    private float[] MMatrix = new float[16];
-    private float[] VMatrix = new float[16];
-    private float[] STMatrix = new float[16];
 
 
     private final GLSurfaceView glView;
@@ -54,66 +47,38 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
     private SurfaceCreateListener surfaceCreateListener;
     private MediaVideoEncoder videoEncoder;
 
+    private CameraSurfaceRenderer mRenderer;
+
+    public int mVideoWidth;
+
+    public int mVideoHeight;
+
     private boolean flip = false;
 
-    public GlPreviewRenderer(GLSurfaceView glView) {
+    public GlPreviewRenderer(GLSurfaceView glView, int videoWidth, int videoHeight) {
         this.glView = glView;
         this.glView.setEGLConfigChooser(new GlConfigChooser(false));
         this.glView.setEGLContextFactory(new GlContextFactory());
-        this.glView.setRenderer(this);
+        mRenderer = new CameraSurfaceRenderer(this);
+        this.glView.setRenderer(mRenderer);
         this.glView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 
+        this.mVideoWidth = videoWidth;
+        this.mVideoHeight = videoHeight;
 
-        Matrix.setIdentityM(STMatrix, 0);
     }
 
     public void onStartPreview(float cameraPreviewWidth, float cameraPreviewHeight, boolean isLandscapeDevice) {
 
-        Matrix.setIdentityM(MMatrix, 0);
-        Matrix.rotateM(MMatrix, 0, -angle, 0.0f, 0.0f, 1.0f);
 
-//        Log.d("GPUCameraRecorder ", "angle" + angle);
-//        Log.d("GPUCameraRecorder ", "getMeasuredHeight " + glView.getMeasuredHeight());
-//        Log.d("GPUCameraRecorder ", "getMeasuredWidth " + glView.getMeasuredWidth());
-//        Log.d("GPUCameraRecorder ", "cameraPreviewWidth " + cameraPreviewWidth);
-//        Log.d("GPUCameraRecorder ", "cameraPreviewHeight " + cameraPreviewHeight);
+    }
 
-        isLandscapeDevice = false;
+    public int getWidthView() {
+        return glView.getWidth();
+    }
 
-        if (isLandscapeDevice) {
-
-            if (glView.getMeasuredWidth() == glView.getMeasuredHeight()) {
-
-                float scale = Math.max(cameraPreviewWidth / cameraPreviewHeight,
-                        cameraPreviewHeight / cameraPreviewWidth);
-                Matrix.scaleM(MMatrix, 0, 1f * scale, 1f * scale, 1);
-
-            } else {
-                float scale = Math.max(
-                        (float) glView.getMeasuredHeight() / cameraPreviewWidth,
-                        (float) glView.getMeasuredWidth() / cameraPreviewHeight);
-                Matrix.scaleM(MMatrix, 0, 1f * scale, 1f * scale, 1);
-            }
-
-        } else {
-            // Portlate
-            // View 1920 1080 Camera 1280 720 OK
-            // View 1920 1080 Camera 800 600 OK
-            // View 1440 1080 Camera 800 600 OK
-            // View 1080 1080 Camera 1280 720 Need Scale
-            // View 1080 1080 Camera 800 600 Need Scale
-
-
-            float viewAspect = (float) glView.getMeasuredHeight() / glView.getMeasuredWidth();
-            float cameraAspect = cameraPreviewWidth / cameraPreviewHeight;
-            if (viewAspect >= cameraAspect) {
-                Matrix.scaleM(MMatrix, 0, 1f, 1f, 1);
-            } else {
-                float adjust = cameraAspect / viewAspect;
-                Matrix.scaleM(MMatrix, 0, 1f * adjust, 1f * adjust, 1);
-            }
-        }
-
+    public int getHeightView() {
+        return glView.getHeight();
     }
 
     public void setGlFilter(final GlFilter filter) {
@@ -138,35 +103,25 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
         glView.requestRender();
     }
 
-    @Override
-    public void onSurfaceCreated(EGLConfig config) {
+    public void onSurfaceCreated(EGLConfig config, int[] args) {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-        final int[] args = new int[1];
-
-        GLES20.glGenTextures(args.length, args, 0);
-        texName = args[0];
-
-        // SurfaceTextureを生成
-        previewTexture = new GlSurfaceTexture(texName);
-        previewTexture.setOnFrameAvailableListener(this);
-
-        GLES20.glBindTexture(previewTexture.getTextureTarget(), texName);
+        GLES20.glBindTexture(GlPreview.GL_TEXTURE_EXTERNAL_OES, mRenderer.hTex);
         // GL_TEXTURE_EXTERNAL_OES
-        EglUtil.setupSampler(previewTexture.getTextureTarget(), GL_LINEAR, GL_NEAREST);
+        EglUtil.setupSampler(GlPreview.GL_TEXTURE_EXTERNAL_OES, GL_LINEAR, GL_NEAREST);
         GLES20.glBindTexture(GL_TEXTURE_2D, 0);
 
         filterFramebufferObject = new GlFramebufferObject();
         // GL_TEXTURE_EXTERNAL_OES
-        previewShader = new GlPreview(previewTexture.getTextureTarget());
+        previewShader = new GlPreview(GlPreview.GL_TEXTURE_EXTERNAL_OES);
         previewShader.setup();
 
 
-        Matrix.setLookAtM(VMatrix, 0,
+        /*Matrix.setLookAtM(VMatrix, 0,
                 0.0f, 0.0f, 5.0f,
                 0.0f, 0.0f, 0.0f,
                 0.0f, 1.0f, 0.0f
-        );
+        );*/
 
 
         if (glFilter != null) {
@@ -179,13 +134,12 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
             @Override
             public void run() {
                 if (surfaceCreateListener != null) {
-                    surfaceCreateListener.onCreated(previewTexture.getSurfaceTexture());
+                    surfaceCreateListener.onCreated(mRenderer.getSurfaceTexture());
                 }
             }
         });
     }
 
-    @Override
     public void onSurfaceChanged(int width, int height) {
 
         filterFramebufferObject.setup(width, height);
@@ -194,37 +148,14 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
             glFilter.setFrameSize(width, height);
         }
         scaleRatio = (float) width / height;
-        Matrix.frustumM(ProjMatrix, 0, -scaleRatio, scaleRatio, -1, 1, 5, 7);
+        //Matrix.frustumM(ProjMatrix, 0, -scaleRatio, scaleRatio, -1, 1, 5, 7);
     }
 
-    @Override
-    public void onDrawFrame(GlFramebufferObject fbo) {
-
-        if (drawScale != gestureScale) {
-
-            float tempScale = 1 / drawScale;
-            Matrix.scaleM(MMatrix, 0, tempScale, tempScale, 1);
-            drawScale = gestureScale;
-            Matrix.scaleM(MMatrix, 0, drawScale, drawScale, 1);
-        }
-
-        synchronized (this) {
-            if (updateTexImageCompare != updateTexImageCounter) {
-                // loop and call updateTexImage() for each time the onFrameAvailable() method was called below.
-                while (updateTexImageCompare != updateTexImageCounter) {
-
-                    previewTexture.updateTexImage();
-                    previewTexture.getTransformMatrix(STMatrix);
-                    updateTexImageCompare++;  // increment the compare value until it's the same as _updateTexImageCounter
-                }
-            }
-
-        }
-
+    public void onDrawFrame(int hText, float[] mStMatrix, float[] mMvpMatrix) {
         if (isNewShader) {
             if (glFilter != null) {
                 glFilter.setup();
-                glFilter.setFrameSize(fbo.getWidth(), fbo.getHeight());
+                //glFilter.setFrameSize(fbo.getWidth(), fbo.getHeight());
             }
             isNewShader = false;
         }
@@ -235,26 +166,22 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
 
         GLES20.glClear(GL_COLOR_BUFFER_BIT);
 
-        Matrix.multiplyMM(MVPMatrix, 0, VMatrix, 0, MMatrix, 0);
-        Matrix.multiplyMM(MVPMatrix, 0, ProjMatrix, 0, MVPMatrix, 0);
-
-        previewShader.draw(texName, MVPMatrix, STMatrix, aspectRatio);
+        previewShader.draw(hText, mMvpMatrix, mStMatrix, aspectRatio);
 
 
         if (glFilter != null) {
-            fbo.enable();
             GLES20.glClear(GL_COLOR_BUFFER_BIT);
-            glFilter.draw(filterFramebufferObject.getTexName(), fbo);
+            glFilter.draw(hText);
         }
 
         //Rotate image to avoid mirrored image
-        Matrix.scaleM(MVPMatrix, 0, 1, -1, 1);
+        Matrix.scaleM(mMvpMatrix, 0, 1, -1, 1);
 
         if (videoEncoder != null && !videoEncoder.isReduceFps()) {
             flip = false;
             synchronized (this) {
                 // notify to capturing thread that the camera frame is available.
-                videoEncoder.frameAvailableSoon(texName, STMatrix, MVPMatrix, aspectRatio);
+                videoEncoder.frameAvailableSoon(hText, mStMatrix, mMvpMatrix, aspectRatio);
             }
         } else {
             flip = !flip;
@@ -262,7 +189,7 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
                 synchronized (this) {
                     if (videoEncoder != null) {
                         // notify to capturing thread that the camera frame is available.
-                        videoEncoder.frameAvailableSoon(texName, STMatrix, MVPMatrix, aspectRatio);
+                        videoEncoder.frameAvailableSoon(hText, mStMatrix, mMvpMatrix, aspectRatio);
                     }
                 }
             }
@@ -279,7 +206,7 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
             public void run() {
                 synchronized (GlPreviewRenderer.this) {
                     if (encoder != null) {
-                        encoder.setEglContext(EGL14.eglGetCurrentContext(), texName);
+                        encoder.setEglContext(EGL14.eglGetCurrentContext(), mRenderer.hTex);
                     }
                     videoEncoder = encoder;
                 }
@@ -288,8 +215,8 @@ public class GlPreviewRenderer extends GlFrameBufferObjectRenderer implements Su
 
     }
 
-    public GlSurfaceTexture getPreviewTexture() {
-        return previewTexture;
+    public SurfaceTexture getPreviewTexture() {
+        return mRenderer.getSurfaceTexture();
     }
 
     public void setAngle(int angle) {

@@ -83,7 +83,7 @@ public class GPUCameraRecorder {
 
         // create preview Renderer
         if (null == glPreviewRenderer) {
-            glPreviewRenderer = new GlPreviewRenderer(glSurfaceView);
+            glPreviewRenderer = new GlPreviewRenderer(glSurfaceView, fileWidth, fileHeight);
         }
 
         glPreviewRenderer.setSurfaceCreateListener(new GlPreviewRenderer.SurfaceCreateListener() {
@@ -103,6 +103,10 @@ public class GPUCameraRecorder {
             fileHeight = size.getHeight();
             fileWidth = size.getWidth();
         }
+    }
+
+    public int getGain() {
+        return gain;
     }
 
     public void setGain(int gain) {
@@ -163,7 +167,7 @@ public class GPUCameraRecorder {
                     });
 
                     if (glPreviewRenderer != null) {
-                        final SurfaceTexture st = glPreviewRenderer.getPreviewTexture().getSurfaceTexture();
+                        final SurfaceTexture st = glPreviewRenderer.getPreviewTexture();
                         st.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
                     }
                 }

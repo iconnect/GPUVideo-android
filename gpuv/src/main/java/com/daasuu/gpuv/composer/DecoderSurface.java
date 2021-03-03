@@ -283,7 +283,7 @@ class DecoderSurface implements SurfaceTexture.OnFrameAvailableListener {
             // 一度shaderに描画したものを、fboを利用して、drawする。drawには必要なさげだけど。
             framebufferObject.enable();
             GLES20.glClear(GL_COLOR_BUFFER_BIT);
-            filter.draw(filterFramebufferObject.getTexName(), framebufferObject);
+            filter.draw(filterFramebufferObject.getTexName());
         }
 
 
@@ -293,7 +293,7 @@ class DecoderSurface implements SurfaceTexture.OnFrameAvailableListener {
         GLES20.glViewport(0, 0, framebufferObject.getWidth(), framebufferObject.getHeight());
 
         GLES20.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        normalShader.draw(framebufferObject.getTexName(), null);
+        normalShader.draw(framebufferObject.getTexName());
     }
 
     @Override
